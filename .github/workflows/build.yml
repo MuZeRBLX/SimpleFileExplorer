@@ -29,7 +29,7 @@ jobs:
             Program.py
 
       - name: 📤 Upload EXE as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SimpleFileExplorer
           path: dist/
