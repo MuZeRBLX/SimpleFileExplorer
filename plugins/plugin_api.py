@@ -31,6 +31,11 @@ class PluginAPI:
     def events(self):
         return dict(self._event_handlers)
 
+    def get_module(self, name):
+    try:
+        return  self.context.modules["importlib"].import_module(name)
+    except Exception as e:
+        print(f"[PLUGIN] Could not load module {name}: {e}")
 
     def show_noti(self, message, duration=3000, offset=(10, 10)):
         """Show Notification"""
