@@ -3,4 +3,6 @@ A File Explorer with built-in Plugin Support! Everything is made in python, beca
 
 Ctrl+Shift+Q To View Hidden Files.
 
+### ANY PLUGINS NOT PUBLISHED BY THIS USER ARE NOT TRUSTED, AND CAN BE DANGEROUS. USE AT YOUR OWN DISCRETION.
+
 https://muzerblx.github.io/SFE
