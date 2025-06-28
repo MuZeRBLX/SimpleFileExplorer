@@ -1,5 +1,5 @@
 plugin_info = {
-    "name": "ExampleMod",
+    "name": "Plugin Loaded?",
     "author": "MuZe",
     "version": "1.0.0",
     "description": "Sends Message About Plugin Loading?",

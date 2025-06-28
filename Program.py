@@ -9,7 +9,10 @@ import zipfile
 import importlib
 import plugins.plugin_api
 from plugins.plugin_api import PluginAPI
+import tkinter.messagebox as messagebox
 import random
+import json
+import threading
 
 
 # Theme colors
@@ -25,10 +28,56 @@ CurrentTree  = "C:\\"
 WRITABLELIST = ["txt", "md", "rtf", "html", "py", "log","ini"]
 IMAGELIST    = ["jpg", "png", "gif"]
 VIDEOLIST    = ["mp4", "avi", "mkv", "mov", "flv", "wmv", "webm", "mpeg", "mpg","mp3","wav"]
+undo_protocols = {}
 
 # Plugins
 
 PLUGINS = []
+
+def CreateNewFile():
+    WRITABLELIST = ["txt", "md", "rtf", "html", "py", "log", "ini"]
+    IMAGELIST = ["jpg", "png", "gif"]
+    VIDEOLIST = ["mp4", "avi", "mkv", "mov", "flv", "wmv", "webm", "mpeg", "mpg", "mp3", "wav"]
+
+    win = tk.Toplevel(bg=bg)
+    win.title("Create New File or Folder")
+
+    inp = tk.Entry(win, bg=bg2, fg=fg)
+    inp.pack(side="top")
+
+    def Create():
+        filename = inp.get().strip()
+        if not filename:
+            RunError("ERROR 1: FILE/FOLDER NAME CANNOT BE EMPTY.")
+            return
+
+        full_path = os.path.join(CurrentTree, filename)
+
+        if os.path.exists(full_path):
+            RunError("ERROR 2: FILE OR FOLDER ALREADY EXISTS.")
+            return
+
+        ext = filename.split(".")[-1].lower() if "." in filename else ""
+        try:
+            if ext in WRITABLELIST + IMAGELIST + VIDEOLIST:
+                with open(full_path, "w", encoding="utf-8") as f:
+                    f.write("")  # empty file
+                action_type = "create"
+            else:
+                os.makedirs(full_path)
+                action_type = "mkdir"
+
+            undo_stack.append({
+                "action": action_type,
+                "path": full_path
+            })
+            RefreshList()
+            win.destroy()
+        except Exception as e:
+            RunError(f"ERROR 3: COULD NOT CREATE FILE OR FOLDER.\n{e}")
+
+    But = tk.Button(win, bg=bg2, fg=fg, text="Create", command=Create)
+    But.pack(side="top")
 
 def getpath():
     
@@ -46,43 +95,60 @@ def on_list_select_event(event):
 import importlib.util
 import os
 
-def load_plugins(root, context, path="plugins"):
+def load_plugins(root, context, path="plugins", trust_registry_path="data.json"):
     plugins = []
 
+    # Load trust list (or create if missing)
+    if os.path.exists(trust_registry_path):
+        with open(trust_registry_path, "r") as f:
+            data = json.load(f)
+            trusted_plugins = data["Plugins"]
+    else:
+        trusted_plugins = []
+
     for file in os.listdir(path):
-        if file.endswith(".py") and not file == "__init__.py" and not file == "plugin_api.py":
+        if file.endswith(".py") and file not in ("__init__.py", "plugin_api.py"):
             full_path = os.path.join(path, file)
             name = os.path.splitext(file)[0]
 
+            # Check if plugin is trusted
+            if file not in trusted_plugins:
+                response = tk.messagebox.askyesno(
+                    "Trust Plugin?",
+                    f"The plugin '{file}' is untrusted.\nDo you want to allow it?"
+                )
+                if response:
+                    trusted_plugins.append(file)
+                    with open(trust_registry_path, "w") as f:
+                        json.dump({"Plugins":trusted_plugins}, f, indent=4)
+                else:
+                    print(f"[PLUGIN BLOCKED] {file} was not trusted.")
+                    continue
+
             spec = importlib.util.spec_from_file_location(name, full_path)
             mod = importlib.util.module_from_spec(spec)
+
             try:
                 spec.loader.exec_module(mod)
 
-                # 💡 Extract plugin_info dict if it exists
                 info = getattr(mod, "plugin_info", {
                     "name": name,
                     "author": "Unknown",
                     "version": "0.0",
-                    "trusted": False
+                    "trusted": True
                 })
 
-                # You could also inject that into context or log it
                 print(f"[PLUGIN LOADED] {info['name']} by {info['author']} (v{info['version']})")
-
-                # Optionally attach info to module
                 mod._info = info
                 plugins.append(mod)
-                
+
                 if hasattr(mod, "on_load"):
                     mod.on_load(root, API)
-
 
             except Exception as e:
                 print(f"[PLUGIN ERROR] Failed to load {file}: {e}")
 
-    context["plugins_loaded"] = plugins  
-
+    context["plugins_loaded"] = plugins
     return plugins
 
 
@@ -140,19 +206,38 @@ def undo_last_action(event=None):
     try:
         if last["action"] == "rename":
             os.rename(last["new"], last["old"])
-        if last["action"] == "delete":
+        elif last["action"] == "delete":
             os.rename(last["trashed"], last["original"])
-        if last["action"] == "move":
+        elif last["action"] == "move":
             os.rename(last["new"], last["old"])
-        if last["action"] == "deletemultiple":
+        elif last["action"] == "deletemultiple":
             for entry in last["Trashed"]:
                 os.rename(entry["trashed"], entry["original"])
-        if last["action"] == "duplicate":
+        elif last["action"] == "duplicate":
             # Delete the duplicate copy
             if os.path.isdir(last["copy"]):
                 shutil.rmtree(last["copy"])
             else:
                 os.remove(last["copy"])
+        elif last["action"] == "create":
+            if os.path.isdir(last["path"]):
+                shutil.rmtree(last["path"])
+            else:
+                os.remove(last["path"])
+        else:
+            action = last.get("action")
+            info = last.get("info", {})  # optional details passed by plugin
+            handler = context.get("undo_protocols", {}).get(action)
+
+            if callable(handler):
+                try:
+                    handler(info)
+                except Exception as e:
+                    RunError(f"Undo Failed: {e}")
+            else:
+                RunError(f"Undo Failed: Unknown action '{action}'")
+
+
 
 
         RefreshList()
@@ -728,6 +813,9 @@ btn6.pack(pady=1, side="bottom")
 
 context_menu = tk.Menu(root, tearoff=0, bg=bg2, fg=fg)
 
+def AddContextMenuCommand(label,commande):
+    context_menu.add_command(label=label, command=commande)
+
 context_menu.add_command(label="Open", command=on_item_select)
 context_menu.add_command(label="Rename", command=RenameFile)
 context_menu.add_command(label="Duplicate", command=DuplicateFile)
@@ -736,6 +824,7 @@ context_menu.add_command(label="Move", command=MoveFile)
 
 def show_context_menu(event):
     # Select the item under the cursor
+    API.trigger_event("opened_context_menu")
     try:
         listb.selection_clear(0, tk.END)
         listb.selection_set(listb.nearest(event.y))
@@ -744,7 +833,7 @@ def show_context_menu(event):
 
     context_menu.tk_popup(event.x_root, event.y_root)
 
-modules = {"tkinter":tk,"os":os,"shutil":shutil,"vlc":vlc,"PIL":PIL,"zipfile":zipfile,"random":random}
+modules = {"tkinter":tk,"os":os,"shutil":shutil,"vlc":vlc,"PIL":PIL,"zipfile":zipfile,"random":random,"threading":threading}
 
 context = {
     "listb": listb,
@@ -754,7 +843,13 @@ context = {
     "errors": errors,
     "CurrentPath": getpath,
     "RefreshList": RefreshList,
-    "modules":modules
+    "CMC":AddContextMenuCommand,
+    "CreateNewFilePrompt":CreateNewFile,
+    "RenameFilePrompt":RenameFile,
+    "DeleteFilePrompt":DeleteFile,
+    "modules":modules,
+    "undo_stack":undo_stack,
+    "undo_protocols":undo_protocols
 }
 
 API = PluginAPI(root,context=context)
@@ -774,7 +869,7 @@ def handle_f2(e):
     API.trigger_event("key_pressed", "F2")
 
 def handle_Del(e):
-    MoveFile()
+    DeleteFile()
     API.trigger_event("key_pressed", "Delete")
     
 def handle_f3(e):
@@ -821,6 +916,7 @@ root.bind("<Delete>", handle_Del)
 root.bind("<Control-Delete>")
 root.bind("<Control-z>", undo_last_action)
 root.bind("<Control-d>", lambda e: DuplicateFile())
+root.bind("<Control-n>", lambda e: CreateNewFile())
 root.bind("<Control-Shift-Q>", ToggleHidden)
 root.bind("<Control-Shift-q>", ToggleHidden)
 listb.bind("<<ListboxSelect>>", on_list_select_event)

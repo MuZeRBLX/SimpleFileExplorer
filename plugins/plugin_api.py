@@ -17,7 +17,8 @@ EventName = Literal[
     "file_moved",
     "before_file_delete",
     "before_directory_change",
-    "key_pressed"
+    "key_pressed",
+    "opened_context_menu"
 ]
 
 
@@ -86,11 +87,24 @@ class PluginAPI:
         
         CPath=self.context.get("CurrentPath")
         return CPath()
+    
+    def add_undo(self, action_dict):
+        stack = self.context.get("undo_stack")
+        if isinstance(stack, list):
+            stack.append(action_dict)
             
+    def register_undo_protoc(self,protocol,callback:callable):
+        self.context.get("undo_protocols")[protocol] = callback
+        
     def on_event(self, event_name:EventName, callback:callable):
         """Let plugins register a handler for a named event."""
         self._event_handlers.setdefault(event_name, []).append(callback)
         
+    def run_in_thread(self, func, *args, **kwargs):
+        threading = self.modules["threading"]
+        t = threading.Thread(target=func, args=args, kwargs=kwargs, daemon=True)
+        t.start()
+
     def OnKeyPress(self, key, callback:callable):
         def handle_key(key2):
             if key2 == key:
@@ -98,6 +112,21 @@ class PluginAPI:
 
         self.on_event("key_pressed", handle_key)
         
+    def AddContextMenuCommand(self, label,command):
+        CMC=self.context.get("CMC")
+        CMC(label,command)
+
+    def NewFilePrompt(self):
+        CMC=self.context.get("CreateNewFilePrompt")
+        CMC()
+
+    def DeleteFilePrompt(self):
+        CMC=self.context.get("DeleteFilePrompt")
+        CMC()
+        
+    def RenameFilePrompt(self):
+        CMC=self.context.get("RenameFilePrompt")
+        CMC()
 
     def trigger_event(self, event_name:EventName, *args, **kwargs):
         """Call all handlers associated with an event."""
@@ -107,6 +136,7 @@ class PluginAPI:
                 handler(*args, **kwargs)
             except Exception as e:
                 print(f"[PLUGIN EVENT ERROR] {e}")
+                
                 
     @property
     
