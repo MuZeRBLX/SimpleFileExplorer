@@ -299,7 +299,7 @@ def RenameFile():
                     
             if FileNameOrig.count(".")==1 and inp.get().count(".")==0:
                 
-                newname = (f"{inp.get()}.{FileNameOrig.split(".")[1]}")
+                newname = (f"{inp.get()}.{FileNameOrig.split('.')[1]}")
                 
                 os.rename(os.path.join(CurrentTree,FileNameOrig),os.path.join(CurrentTree,newname))
                 undo_stack.append({
