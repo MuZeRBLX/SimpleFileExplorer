@@ -833,7 +833,7 @@ def show_context_menu(event):
 
     context_menu.tk_popup(event.x_root, event.y_root)
 
-modules = {"tkinter":tk,"os":os,"shutil":shutil,"vlc":vlc,"PIL":PIL,"zipfile":zipfile,"random":random,"threading":threading}
+modules = {"tkinter":tk,"os":os,"shutil":shutil,"vlc":vlc,"PIL":PIL,"zipfile":zipfile,"random":random,"threading":threading,"importlib":importlib}
 
 context = {
     "listb": listb,
