@@ -23,6 +23,7 @@ jobs:
           pip install pyinstaller
 
       - name: 🛠️ Build with PyInstaller
+        shell: cmd
         run: |
           pyinstaller --noconfirm --onedir --windowed ^
             --add-data "plugins;plugins/" ^
