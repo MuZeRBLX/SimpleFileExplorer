@@ -21,6 +21,7 @@ jobs:
       - name: 📦 Install dependencies
         run: |
           pip install pyinstaller
+          pip install -r requirements.txt
 
       - name: 🛠️ Build with PyInstaller
         shell: cmd
