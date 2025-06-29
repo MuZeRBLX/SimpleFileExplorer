@@ -6,8 +6,13 @@ plugin_info = {
     "trusted": True
 }
 
-
 def on_load(app, tools):
-    def on_start():
-        tools.show_noti("Plugin loaded!")
-    tools.on_event("app_start", on_start)
+    
+    os = tools.get_module("os")
+    
+    def on_start(items):
+        for i in items:
+            if not tools.get_file_properties(os.path.join(tools.GetCurrentPath(),i))["extension"] == "":
+                tools.show_noti(str(tools.get_file_properties(os.path.join(tools.GetCurrentPath(),i))))
+            
+    tools.on_event("file_selected", on_start)

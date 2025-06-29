@@ -34,6 +34,47 @@ class PluginAPI:
             return  importlib.import_module(name)
         except Exception as e:
             print(f"[PLUGIN] Could not load module {name}: {e}")
+            
+    def get_file_properties(self, path):
+        """
+    Returns a dictionary containing metadata about the given file or folder.
+
+    Returned dictionary keys:
+        - name: The base name of the file or folder.
+        - path: The absolute path.
+        - is_file: True if the path is a regular file.
+        - is_dir: True if the path is a directory.
+        - size: File size in bytes (None for directories).
+        - modified_time: Last modification time (string).
+        - created_time: Creation time (string).
+        - permissions: Unix-style permissions string (e.g., '644').
+        - extension: File extension (if any, for files only).
+
+    Returns {'error': ...} if the path does not exist or an error occurs.
+    """
+        os = self.get_module("os")
+        time = self.get_module("time")
+        stat = self.get_module("stat")
+        try:
+            st = os.stat(path)
+            is_file = os.path.isfile(path)
+            is_dir = os.path.isdir(path)
+            size = st.st_size if is_file else None
+            permissions = oct(st.st_mode)[-3:]
+            ext = os.path.splitext(path)[1] if is_file else ""
+            return {
+                "name": os.path.basename(path),
+                "path": os.path.abspath(path),
+                "is_file": is_file,
+                "is_dir": is_dir,
+                "size": size,
+                "modified_time": time.ctime(st.st_mtime),
+                "created_time": time.ctime(st.st_ctime),
+                "permissions": permissions,
+                "extension": ext,
+            }
+        except Exception as e:
+            return {"error": str(e)}
 
 
     def show_noti(self, message, duration=3000, offset=(10, 10)):
