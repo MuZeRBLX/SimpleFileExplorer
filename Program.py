@@ -146,7 +146,7 @@ def load_plugins(root, context, path="plugins", trust_registry_path="data.json")
                     mod.on_load(root, API)
 
             except Exception as e:
-                print(f"[PLUGIN ERROR] Failed to load {file}: {e}")
+                RunError(f"[PLUGIN ERROR] Failed to load {file}: {e}")
 
     context["plugins_loaded"] = plugins
     return plugins
